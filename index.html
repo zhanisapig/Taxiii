@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🚖 叫車表單</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f2f2f2;margin:0;padding:0;}
+.container{max-width:500px;margin:40px auto;background:#fff;padding:30px;border-radius:10px;box-shadow:0 0 10px rgba(0,0,0,0.1);}
+h2{text-align:center;color:#333;}
+label{display:block;margin-top:15px;color:#555;}
+input,textarea{width:100%;padding:12px;margin-top:5px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;font-size:16px;}
+textarea{resize:vertical;}
+button{width:100%;padding:15px;margin-top:25px;background:#4CAF50;color:white;border:none;border-radius:8px;font-size:18px;cursor:pointer;}
+button:hover{background:#45a049;}
+.alert{display:none;margin-top:20px;padding:15px;background-color:#4CAF50;color:white;border-radius:6px;text-align:center;}
+#loginBtn{background:#1DB954;}
+@media(max-width:600px){.container{margin:20px;padding:20px;}}
+</style>
+</head>
+<body>
+<div class="container">
+<h2>🚖 叫車表單</h2>
+
+<!-- 登入按鈕 -->
+<button id="loginBtn" style="display:none;">🔑 使用 LINE 登入</button>
+
+<!-- 表單 -->
+<form id="taxiForm" style="display:none;">
+<label>電話（可填可不填）</label>
+<input type="tel" name="phone" placeholder="請輸入電話">
+<label>上車地點（可填可不填）</label>
+<input type="text" name="pickup" placeholder="請輸入上車地點">
+<label>目的地（可填可不填）</label>
+<input type="text" name="destination" placeholder="請輸入目的地">
+<label>備註（可填可不填）</label>
+<textarea name="note" rows="3" placeholder="可輸入特殊需求或備註"></textarea>
+<button type="submit">📩 叫車</button>
+</form>
+
+<div class="alert" id="alertBox">✅ 訊息已送到 LINE，請等待司機聯絡！</div>
+</div>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+let userId = '';
+const form = document.getElementById('taxiForm');
+const alertBox = document.getElementById('alertBox');
+const loginBtn = document.getElementById('loginBtn');
+
+async function initLIFF() {
+    const liffId = "2007979399-ge92zyvv"; // 你的 LIFF ID
+    try {
+        await liff.init({ liffId });
+        console.log("✅ LIFF 初始化完成");
+
+        if (!liff.isLoggedIn()) {
+            console.log("尚未登入 → 顯示登入按鈕");
+            loginBtn.style.display = 'block';
+        } else {
+            console.log("已登入 → 顯示表單");
+            const profile = await liff.getProfile();
+            userId = profile.userId;
+            form.style.display = 'block';
+        }
+    } catch (err) {
+        alert("LIFF 初始化失敗: " + err);
+        console.error(err);
+    }
+}
+
+// 確保點擊才觸發登入（LINE in-app 可用）
+loginBtn.addEventListener("click", function(){
+    console.log("👉 按下登入按鈕");
+    liff.login({ redirectUri: window.location.href });
+});
+
+// 表單送出
+form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    if(!userId){
+        alert('尚未登入 LINE，請先登入');
+        return;
+    }
+
+    const now = new Date();
+    const timeStr = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0')+' '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+
+    const data = {
+        userId: userId,
+        phone: form.phone.value || "未填",
+        pickup: form.pickup.value || "未填",
+        destination: form.destination.value || "未填",
+        note: form.note.value || "未填",
+        time: timeStr
+    };
+
+    try{
+        const res = await fetch("https://script.google.com/macros/s/AKfycbyBeXOpDLNGqwlVZrTN01EsH5OuYVITx1VI5E2zbi8oOoiZYK7bWBw1M9pQ26hN3HK6/exec", {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify(data)
+        });
+        const result = await res.text();
+        console.log("伺服器回覆:", result);
+        alertBox.style.display='block';
+        setTimeout(()=>{alertBox.style.display='none';form.reset();},2000);
+    }catch(err){
+        alert("發送失敗："+err);
+        console.error(err);
+    }
+});
+
+initLIFF();
+</script>
+</body>
+</html>
